@@ -1,0 +1,26 @@
+# Changelog
+
+Version history for the MGP specification. Extracted from [MGP_GUIDE.md §18.1 Version History](docs/MGP_GUIDE.md#181-version-history).
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 0.1.0-draft | 2026-02-27 | Initial draft — Security layer (§2-7) |
+| 0.2.0-draft | 2026-02-27 | Communication & Lifecycle layer (§11-15) |
+| 0.3.0-draft | 2026-02-27 | Intelligence layer — Dynamic Tool Discovery & Active Tool Request (§16) |
+| 0.4.0-draft | 2026-02-28 | Expert review response (see §18.2) |
+| 0.5.0-draft | 2026-02-28 | Selective Minimalism (see §18.3) |
+| 0.5.1-draft | 2026-02-28 | Document consolidation: merged MGP_PATTERNS.md, MGP_ADOPTION.md, MGP_REVIEW_RESPONSE.md into single specification |
+| 0.5.2-draft | 2026-02-28 | Second review response: sequential section numbering (§17-19), `notifications/mgp.event` added to Layer 2, kernel tool visibility rules (§16.8), §14 Layer classification, MCP comparison compressed |
+| 0.6.0-draft | 2026-03-06 | Transport layer analysis (see §18.4) + structural audit & architectural revision (see §18.5) |
+| 0.6.0-impl | 2026-03-07 | ClotoCore Tier 1-4 implementation complete: 21 kernel tools, 13 extensions, bug-182 to bug-226 fixed. New modules: `mcp_mgp.rs`, `mcp_lifecycle.rs`, `mcp_streaming.rs`, `mcp_events.rs`, `mcp_discovery.rs`, `mcp_tool_discovery.rs` |
+| 0.6.1-draft | 2026-04-22 | §14.7 Tool Rejection Envelope — structured `CallToolResult.isError` body for policy/logic refusals distinct from JSON-RPC errors, 9-variant RejectionCode registry, server opt-in semantics, kernel agentic-loop break + mechanical final response contract, security hardening against rejection-text-driven privilege escalation |
+| 0.6.3-draft | TBD | (Planned) Security Invariant 3 universalize — seal absence forces `untrusted` regardless of declared tier (previously specified for `core` only). §4.0 behavior table unified to "Force untrusted (allow startup)" for seal-missing cases except invalid seals. New audit event `TRUST_LEVEL_DOWNGRADED_NO_SEAL` (§6.4). |
+
+## Migration to mgp-spec repo
+
+Prior to 2026-05-07, the MGP specification was maintained inside [`Cloto-dev/cloto-mcp-servers/docs/`](https://github.com/Cloto-dev/cloto-mcp-servers/tree/main/docs). The specification has been extracted into this independent repository (`Cloto-dev/mgp-spec`) under MIT license, fulfilling the planned "License and Distribution Strategy" described in [MGP_GUIDE.md §17.4](docs/MGP_GUIDE.md#174-license-and-distribution-strategy). The 6 specification documents migrated to this repo retain their original content; the only changes are:
+
+- Child documents (`MGP_SECURITY.md`, `MGP_COMMUNICATION.md`, `MGP_DISCOVERY.md`, `MGP_GUIDE.md`) version header bumped from `v0.6.0-draft, 2026-03-06` to `v0.6.1-draft, 2026-04-22` (sanity-aligned with main `MGP_SPEC.md`)
+- Cross-document URLs converted from absolute `cloto-mcp-servers/blob/main/docs/...` paths to relative paths (`MGP_*.md`)
+
+The historical record in `MGP_GUIDE.md §17.10 Roadmap` (which lists `v0.6.0-draft` as the Phase 0 deliverable) is preserved unchanged because it documents the original draft state, not the current spec version.
