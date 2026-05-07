@@ -1,6 +1,6 @@
 # MGP — Implementation, History & Patterns
 
-> Part of the [MGP Specification](MGP_SPEC.md) (v0.6.1-draft, 2026-04-22)
+> Part of the [MGP Specification](MGP_SPEC.md) (v0.6.3-draft, 2026-05-07)
 > This document covers §17-§20. For overview and architecture, see [MGP_SPEC.md](MGP_SPEC.md).
 
 **Section Map:** §1 [MGP_SPEC.md](MGP_SPEC.md) · §2-§7 [MGP_SECURITY.md](MGP_SECURITY.md) · §11-§14 [MGP_COMMUNICATION.md](MGP_COMMUNICATION.md) · §15-§16 [MGP_DISCOVERY.md](MGP_DISCOVERY.md) · §17-§20 [MGP_GUIDE.md](MGP_GUIDE.md)
@@ -211,6 +211,7 @@ Compliance badges: `[MGP Tier 1]` `[MGP Tier 2]` `[MGP Tier 3]` `[MGP Tier 4]`
 | 0.6.0-draft | 2026-03-06 | Transport layer analysis (see §18.4) + structural audit & architectural revision (see §18.5) |
 | 0.6.0-impl | 2026-03-07 | ClotoCore Tier 1-4 implementation complete: 21 kernel tools, 13 extensions, bug-182 to bug-226 fixed. New modules: `mcp_mgp.rs`, `mcp_lifecycle.rs`, `mcp_streaming.rs`, `mcp_events.rs`, `mcp_discovery.rs`, `mcp_tool_discovery.rs` |
 | 0.6.1-draft | 2026-04-22 | §14.7 Tool Rejection Envelope — structured `CallToolResult.isError` body for policy/logic refusals distinct from JSON-RPC errors, 9-variant RejectionCode registry, server opt-in semantics, kernel agentic-loop break + mechanical final response contract, security hardening against rejection-text-driven privilege escalation |
+| 0.6.3-draft | 2026-05-07 | Security Invariant 3 universalization (MGP_ISOLATION_DESIGN.md §10): an unsealed server is downgraded to `untrusted` regardless of declared tier, replacing the prior `core`-only rule. §4.0 behavior table updated — `core`/`standard`/`experimental` with seal missing now Force-untrusted (allow startup, isolate to `untrusted` profile) instead of Block. §6.4 adds `TRUST_LEVEL_DOWNGRADED_NO_SEAL` audit event. `Seal invalid` continues to Block. Patch-level bump justified by §2.5 — natural extension of an existing invariant, no client/server protocol changes, production impact is a relaxation (Block → sandboxed start) rather than a new restriction. |
 
 ### 18.2 Expert Review Response (0.3.0 → 0.4.0)
 

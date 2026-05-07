@@ -1,6 +1,6 @@
 # MGP — Security & Foundation
 
-> Part of the [MGP Specification](MGP_SPEC.md) (v0.6.1-draft, 2026-04-22)
+> Part of the [MGP Specification](MGP_SPEC.md) (v0.6.3-draft, 2026-05-07)
 > This document covers §2-§7. For overview and architecture, see [MGP_SPEC.md](MGP_SPEC.md).
 
 **Section Map:** §1 [MGP_SPEC.md](MGP_SPEC.md) · §2-§7 [MGP_SECURITY.md](MGP_SECURITY.md) · §11-§14 [MGP_COMMUNICATION.md](MGP_COMMUNICATION.md) · §15-§16 [MGP_DISCOVERY.md](MGP_DISCOVERY.md) · §17-§20 [MGP_GUIDE.md](MGP_GUIDE.md)
@@ -842,6 +842,7 @@ Either `since_seq` or `since_timestamp` must be provided. If both are present,
 | `VALIDATION_FAILED` | Kernel-side validation rejected a tool call |
 | `CODE_REJECTED` | Code safety framework rejected submitted code |
 | `TOOL_CREATED_DYNAMIC` | A tool was dynamically generated via Active Tool Request (§16.6) |
+| `TRUST_LEVEL_DOWNGRADED_NO_SEAL` | Server started without a valid seal; effective `trust_level` was forced to `untrusted` regardless of declared tier. See [MGP_ISOLATION_DESIGN.md §10](MGP_ISOLATION_DESIGN.md#10-security-invariants) Invariant 3 (v0.6.3+). Payload SHOULD include `declared_trust_level`, `effective_trust_level`, and `server_id`. |
 
 Implementations MAY define custom event types using reverse-domain notation
 (e.g., `com.example.custom_event`).

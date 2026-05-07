@@ -208,17 +208,44 @@ seal = "sha256:a1b2c3d4e5f6..."   # HMAC of server.py
 trust_level = "standard"
 ```
 
-**Behavior by trust_level:**
+**Behavior by trust_level (v0.6.3+):**
 
 | trust_level | Seal missing | Seal invalid |
 |---|---|---|
-| `core` | Block startup | Block startup |
-| `standard` | Block startup | Block startup |
-| `experimental` | Warn, allow | Block startup |
+| `core` | Force `untrusted` (allow startup, isolate to untrusted profile) | Block startup |
+| `standard` | Force `untrusted` (allow startup, isolate to untrusted profile) | Block startup |
+| `experimental` | Force `untrusted` (allow startup, isolate to untrusted profile) | Block startup |
 | `untrusted` | Allow (assumed adversarial) | Block startup |
 
+**"Force untrusted" semantics:**
+- Server is allowed to start (no `Block startup`)
+- Effective `trust_level` is overridden to `untrusted` regardless of declared tier
+- Isolation profile is pinned to the `untrusted` baseline
+  (memory ≤ 128MB, FS scope `none`, network scope `none`, max children 0)
+- An `audit/log` event of type `TRUST_LEVEL_DOWNGRADED_NO_SEAL` is emitted
+  (see [MGP_SECURITY.md §6.4](MGP_SECURITY.md#64-standard-event-types))
+- The Marketplace UI MUST surface this state (e.g., an "unverified" badge)
+
+`Seal invalid` (tampering detected) continues to `Block startup` unconditionally —
+only `Seal missing` is relaxed under v0.6.3.
+
 **Development mode:** `CLOTO_ALLOW_UNSIGNED=true` bypasses seal verification for all
-trust levels. A prominent warning is logged.
+trust levels. A prominent warning is logged. This bypass takes precedence over the
+v0.6.3 force-untrusted rule above (i.e., dev-mode servers can run with their declared
+trust_level even without a seal).
+
+**Why universalize (v0.6.3):**
+
+Earlier drafts blocked `core` and `standard` startup outright when seals were missing.
+This created a chicken-and-egg problem during initial bring-up: a fresh server in a
+new install has no seal yet, but the operator cannot test it because startup is blocked.
+Universalizing the force-untrusted behavior across all declared tiers:
+
+1. Lets operators run any server in a strictly sandboxed mode regardless of declared tier
+2. Keeps the kernel's effective trust enforcement honest (an unsigned server is treated
+   as untrusted, not as whatever it claims)
+3. Preserves the original intent of Invariant 3 (§10) — `trust_level` cannot be
+   self-elevated by the server
 
 ### 4.1 Layer 1: Resource Limits
 
@@ -548,13 +575,18 @@ The following invariants MUST hold at all times:
 2. **Isolation profiles are immutable after spawn.**
    A running server cannot modify its own resource limits or filesystem scope.
 
-3. **`trust_level` cannot be self-elevated.**
+3. **`trust_level` cannot be self-elevated, and an unsealed server is `untrusted`.**
    The kernel determines the effective trust_level from the seal signature and
    mcp.toml config. The server MAY declare `trust_level` in its handshake response
    (MGP §2.3), but this value is informational only. If the server-declared level
    exceeds the kernel-determined level, the kernel silently downgrades it.
-   A server claiming `core` without a valid core-level seal is downgraded to
-   `untrusted`.
+
+   **(v0.6.3)** A server **without a valid seal is downgraded to `untrusted` regardless
+   of declared tier**. This generalizes the previous `core`-only rule: where v0.6.1
+   blocked unsealed `core`/`standard` startup outright, v0.6.3 lets them start under
+   the `untrusted` isolation profile and emits a `TRUST_LEVEL_DOWNGRADED_NO_SEAL`
+   audit event (see MGP_SECURITY.md §6.4). `Seal invalid` (tampering) continues to
+   block startup. Development mode (`CLOTO_ALLOW_UNSIGNED=true`) is unaffected.
 
 4. **OS isolation failure is a fatal error.**
    If `setrlimit`, Job Object creation, or namespace setup fails, the server is
