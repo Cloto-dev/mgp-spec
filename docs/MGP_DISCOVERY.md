@@ -390,7 +390,7 @@ immediately call any discovered tool without a second round trip.
 #### Flow Diagram
 
 ```
-User: "このファイルの中身を見せて"
+User: "Show me the contents of this file"
   │
   ▼
 LLM context: [mgp.tools.discover meta-tool] + [user message]
