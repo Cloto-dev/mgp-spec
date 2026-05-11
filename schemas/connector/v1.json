@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloto.dev/schemas/connector/v1.json",
+  "title": "cloto-connector.json v1",
+  "description": "Connector manifest v1. The contract a connector repository publishes so ClotoHub.dev and ClotoCore can sync, validate, install, and seal it without per-connector special-casing. The reference implementation is `mgp-sdk` (Rust, in the `mgp-rs` workspace); this schema and `mgp-sdk::types::ConnectorManifest` are kept in lock-step.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "connector_type",
+    "id",
+    "name",
+    "description",
+    "version",
+    "category",
+    "trust_level",
+    "magic_seal",
+    "install"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "spec_version": {
+      "description": "Manifest schema version. Must equal 1 for v1.",
+      "type": "integer",
+      "const": 1
+    },
+    "connector_type": {
+      "description": "Connector kind. v1 only accepts `mgp_server`.",
+      "type": "string",
+      "const": "mgp_server"
+    },
+    "id": {
+      "description": "Stable connector identifier (kebab-case, ASCII lowercase / digits / hyphen; no leading or trailing hyphen).",
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+    },
+    "name": {
+      "description": "Human-readable name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "description": "Short description (one or two sentences).",
+      "type": "string"
+    },
+    "version": {
+      "description": "Connector version. SHOULD follow SemVer.",
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "description": "Marketplace category. Open vocabulary for v1.",
+      "type": "string",
+      "minLength": 1
+    },
+    "trust_level": {
+      "description": "MGP §2.3 trust tier. The catalog layer enforces seal absence -> `untrusted` (MGP 0.6.3-draft Security Invariant 3).",
+      "type": "string",
+      "enum": ["core", "standard", "experimental", "untrusted"]
+    },
+    "magic_seal": {
+      "description": "MGP §8 L0 Magic Seal in `sha256:HEX` form (64 lowercase hex chars). Required at registration.",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "install": { "$ref": "#/$defs/InstallSpec" },
+    "icon": {
+      "description": "Optional UI icon (URL or short identifier).",
+      "type": ["string", "null"]
+    },
+    "tags": {
+      "description": "Tag set for marketplace filtering.",
+      "type": "array",
+      "default": [],
+      "items": { "type": "string" }
+    },
+    "host_compatibility": {
+      "description": "Hosts that can run this connector (e.g. `clotocore`, `claude-code`, `claude-desktop`, `cursor`, `project-airi`). Empty array means unspecified, not 'no hosts'.",
+      "type": "array",
+      "default": [],
+      "items": { "type": "string" }
+    },
+    "env_vars": {
+      "description": "Required environment variables. Hosts MUST refuse to start the connector when any of these are missing.",
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/EnvVarDef" }
+    },
+    "optional_env_vars": {
+      "description": "Optional environment variables. Hosts MAY pass them through when set; missing values do not block startup.",
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/EnvVarDef" }
+    },
+    "auto_restart": {
+      "description": "Whether the host should automatically restart the connector on unexpected exit.",
+      "type": "boolean",
+      "default": false
+    },
+    "changelog": {
+      "description": "Optional CHANGELOG content (Markdown). Catalog UIs MAY render this on a connector detail page.",
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "InstallSpec": {
+      "type": "object",
+      "description": "Install and runtime declaration block.",
+      "required": ["source", "package_manager", "runtime"],
+      "additionalProperties": true,
+      "properties": {
+        "source": { "$ref": "#/$defs/SourceSpec" },
+        "package_manager": {
+          "description": "Package manager used to materialize the connector. v1 only accepts `uv`.",
+          "type": "string",
+          "const": "uv"
+        },
+        "runtime": {
+          "description": "Runtime language. One of `python`, `rust`, `node`.",
+          "type": "string",
+          "enum": ["python", "rust", "node"]
+        },
+        "dependencies": {
+          "description": "Extra dependencies the host should resolve in addition to the source's own lockfile.",
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" }
+        },
+        "directory": {
+          "description": "Subdirectory inside the source tree where the connector lives. Empty string means root.",
+          "type": "string",
+          "default": ""
+        },
+        "bin_name": {
+          "description": "Binary name produced by the build. Used when `runtime` is `rust`. Ignored otherwise.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "SourceSpec": {
+      "description": "Source descriptor. `type` (snake_case) selects the variant; the remaining fields are flattened into the inner spec.",
+      "oneOf": [
+        { "$ref": "#/$defs/SourceGit" },
+        { "$ref": "#/$defs/SourceRawUrl" },
+        { "$ref": "#/$defs/SourcePypi" },
+        { "$ref": "#/$defs/SourceDocker" }
+      ]
+    },
+    "SourceGit": {
+      "type": "object",
+      "description": "Git repository, optionally pinned to a ref.",
+      "required": ["type", "url"],
+      "additionalProperties": true,
+      "properties": {
+        "type": { "const": "git" },
+        "url": {
+          "description": "Clone URL (http(s) or scp-style ssh, e.g. `git@github.com:owner/repo.git`).",
+          "type": "string",
+          "minLength": 1
+        },
+        "reference": {
+          "description": "Branch / tag / commit SHA. Empty string means upstream default branch (resolved at fetch time).",
+          "type": "string",
+          "default": ""
+        },
+        "subdir": {
+          "description": "Optional subdirectory inside the cloned tree where the manifest applies. Mirrors `install.directory` for consumers that need the source-side hint.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "SourceRawUrl": {
+      "type": "object",
+      "description": "Raw HTTP(S) artifact (typically a tarball or zip).",
+      "required": ["type", "url"],
+      "additionalProperties": true,
+      "properties": {
+        "type": { "const": "raw_url" },
+        "url": {
+          "description": "Direct download URL. Scheme MUST be `http` or `https`.",
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "sha256": {
+          "description": "Hex-encoded SHA-256 of the artifact (64 hex chars). Optional but strongly recommended; required for assets the consumer cannot re-derive (binary releases, frozen tarballs).",
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+          ]
+        }
+      }
+    },
+    "SourcePypi": {
+      "type": "object",
+      "description": "PyPI package. Consumer materializes via `uv pip install <package>[==<version>]`.",
+      "required": ["type", "package"],
+      "additionalProperties": true,
+      "properties": {
+        "type": { "const": "pypi" },
+        "package": {
+          "description": "Package name as it appears on PyPI. Non-empty, no whitespace.",
+          "type": "string",
+          "pattern": "^\\S+$"
+        },
+        "version": {
+          "description": "Optional PEP 440 version pin. Empty / null allows latest.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "SourceDocker": {
+      "type": "object",
+      "description": "Docker image reference. Consumer materializes via `docker pull` (or any OCI-compatible client).",
+      "required": ["type", "image"],
+      "additionalProperties": true,
+      "properties": {
+        "type": { "const": "docker" },
+        "image": {
+          "description": "Image name. Includes registry host and namespace if non-default (e.g. `ghcr.io/cloto-dev/foo`); short form (e.g. `nginx`) resolves against Docker Hub. Non-empty, no whitespace.",
+          "type": "string",
+          "pattern": "^\\S+$"
+        },
+        "tag": {
+          "description": "Tag or digest. Empty / null falls back to `latest`. Catalog SHOULD reject `latest` for production registration.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "EnvVarDef": {
+      "type": "object",
+      "description": "Environment variable contract entry.",
+      "required": ["name"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "description": "Variable name.",
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "description": "Human description.",
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

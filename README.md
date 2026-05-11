@@ -17,6 +17,7 @@
 | [docs/MGP_DISCOVERY.md](docs/MGP_DISCOVERY.md) | §15-§16 | Discovery, Dynamic Tool Discovery |
 | [docs/MGP_GUIDE.md](docs/MGP_GUIDE.md) | §17-§20 | Implementation, History, Patterns |
 | [docs/MGP_ISOLATION_DESIGN.md](docs/MGP_ISOLATION_DESIGN.md) | (§8-§10 reserved) | OS-Level Isolation |
+| [docs/MGP_CONNECTOR.md](docs/MGP_CONNECTOR.md) | — | Connector Manifest (`cloto-connector.json`) v1 — companion to [`schemas/connector/v1.json`](schemas/connector/v1.json) |
 
 ## Compliance Tiers
 
@@ -38,4 +39,10 @@ See [MGP_GUIDE.md §17.5 Staged Adoption Path](docs/MGP_GUIDE.md#175-staged-adop
 
 ## Schemas
 
-The `schemas/` directory is reserved for machine-readable schemas (connector manifest, isolation profile, audit event format, etc.) to be added in Phase 1 of the ClotoHub integration roadmap.
+Machine-readable schemas live under [`schemas/`](schemas/). Each schema has a stable `$id` under `https://cloto.dev/schemas/`.
+
+| Schema | `$id` | Companion doc |
+|---|---|---|
+| [`schemas/connector/v1.json`](schemas/connector/v1.json) | `https://cloto.dev/schemas/connector/v1.json` | [`docs/MGP_CONNECTOR.md`](docs/MGP_CONNECTOR.md) |
+
+Additional schemas (isolation profile, audit event format, etc.) will be added as the ClotoHub integration roadmap advances.
