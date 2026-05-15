@@ -67,7 +67,13 @@ The format is `sha256:` followed by 64 lowercase hex characters. Catalog impleme
 | `auto_restart` | boolean | `false` | Whether the host should auto-restart on unexpected exit. |
 | `changelog` | string &#124; null | `null` | Markdown CHANGELOG; catalogs MAY render on a detail page. |
 
-`EnvVarDef` is `{ name: string, description?: string | null }`.
+`EnvVarDef` is `{ name: string, default?: string | null, description?: string | null }`.
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `name` | string | — | Variable name. Required. Spec-level canonical key. SDK implementations MAY accept legacy field names (e.g. `key`) as a *deserialization alias* for migration from pre-v1 registries that predate this schema; producers MUST emit `name` going forward. The alias is an implementation-side convenience, not a spec-level synonym, so validators applied to a manifest SHOULD reject `key` even when the loading SDK accepted it. See §2 (Authority and Drift Policy) for the (α) implementation-cost-leniency vs (β) acceptance-leniency taxonomy. |
+| `default` | string &#124; null | `null` | Default value the host SHOULD inject when the operator has not provided one. Hosts MUST still treat the variable as *set* for downstream contracts when defaulted. Null or omitted means no default; missing values then fall through to host policy (= refuse-to-start for `env_vars`, pass-through-when-set for `optional_env_vars`). |
+| `description` | string &#124; null | `null` | Human description. |
 
 Unknown top-level fields are ignored on deserialize to keep v1 → v2 evolution additive. Producers SHOULD NOT rely on this — write only the fields documented here.
 

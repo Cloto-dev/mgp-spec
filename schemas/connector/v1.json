@@ -232,9 +232,13 @@
       "additionalProperties": true,
       "properties": {
         "name": {
-          "description": "Variable name.",
+          "description": "Variable name. Spec-level canonical key. SDK implementations MAY accept legacy field names (e.g. `key`) as a deserialization alias for migration from pre-v1 registries; producers MUST emit `name` going forward.",
           "type": "string",
           "minLength": 1
+        },
+        "default": {
+          "description": "Default value the host SHOULD inject when the operator has not provided one. Hosts MUST still treat the variable as 'set' for downstream contracts when defaulted. Null or omitted means no default; missing values then fall through to host policy (= refuse-to-start for `env_vars`, pass-through-when-set for `optional_env_vars`).",
+          "type": ["string", "null"]
         },
         "description": {
           "description": "Human description.",
