@@ -1,6 +1,6 @@
 # MGP — Discovery & Intelligence
 
-> Part of the [MGP Specification](MGP_SPEC.md) (v0.6.3-draft, 2026-05-07)
+> Part of the [MGP Specification](MGP_SPEC.md) (v0.7.0-draft, 2026-05-31)
 > This document covers §15-§16. For overview and architecture, see [MGP_SPEC.md](MGP_SPEC.md).
 
 **Section Map:** §1 [MGP_SPEC.md](MGP_SPEC.md) · §2-§7 [MGP_SECURITY.md](MGP_SECURITY.md) · §11-§14 [MGP_COMMUNICATION.md](MGP_COMMUNICATION.md) · §15-§16 [MGP_DISCOVERY.md](MGP_DISCOVERY.md) · §17-§20 [MGP_GUIDE.md](MGP_GUIDE.md)
