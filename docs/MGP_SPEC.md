@@ -1,6 +1,6 @@
 # MGP — Multi-Agent Gateway Protocol
 
-**Version:** 0.6.3-draft
+**Version:** 0.7.0-draft
 **Status:** Draft
 **Authors:** ClotoCore Project
 **Date:** 2026-05-07

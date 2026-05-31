@@ -161,3 +161,89 @@ v1 will remain the only published version until the v2 hatches in §6 land. Whil
 - The `mgp_sdk` major version staying at 0.1.x for the lifetime of v1.
 
 v2 will be introduced under a new `$id` (`https://cloto.dev/schemas/connector/v2.json`), and v1 will be supported in parallel for at least one MGP minor release.
+
+## 9. Layered Manifest Provisioning
+
+Writing a full `cloto-connector.json` (§3–§5) by hand is the most explicit way to register a connector, but it is heavyweight: every server author must author and maintain a complete manifest. For a monorepo of many servers this multiplies the authoring cost.
+
+Layered Manifest Provisioning lets a catalog **synthesize** a v1 `ConnectorManifest` from progressively cheaper sources, so that a connector can be registered with as little as a few lines of project metadata — while preserving the hand-authored full manifest as an escape hatch. It defines four provisioning layers and a deterministic precedence between them.
+
+The layers describe **where manifest fields come from**, not a new wire format. The result of merging the layers is an ordinary v1 `ConnectorManifest` that validates against §3–§5 and `schemas/connector/v1.json`. A catalog MAY implement only a subset of the layers; an implementation that synthesizes a manifest MUST validate the merged result with the same rules as a hand-authored one (§7).
+
+### 9.1 The Four Layers
+
+| Layer | Source | Cost | Status |
+|---|---|---|---|
+| **Layer 0** — Zero-touch | The project's own packaging metadata: `pyproject.toml` `[project]` (`name`, `description`, `version`). | none | v1 (`[project]` fields). Inspecting `server.py` / entry-module ASTs to infer tools or capabilities is reserved for a future revision. |
+| **Layer 1** — Hint | A `[tool.cloto.mgp]` table in `pyproject.toml` (§9.3). | ~10 lines | v1 |
+| **Layer 2** — Explicit override | Fields supplied out-of-band at registration time (e.g. a catalog registration/import request). | per-field | v1 |
+| **Layer 3** — Full manifest | A complete `cloto-connector.json` committed to the source tree (§3–§5). | full | v1 |
+
+Layer 0 and Layer 1 live **in the connector's repository** (server-side, versioned with the code). Layer 2 is **registration-time** input (catalog-side, not committed). Layer 3 is the pre-existing full-manifest path and remains fully supported for backward compatibility.
+
+### 9.2 Precedence
+
+When more than one layer supplies the same field, the **more explicit layer wins**:
+
+```
+Layer 3  >  Layer 2  >  Layer 1  >  Layer 0
+(full)      (override)  (hint)      (zero-touch)
+```
+
+- A present Layer 3 manifest is authoritative and bypasses synthesis entirely — Layers 0–2 are ignored for any field the full manifest already carries. (A catalog MAY still consult Layer 2 for registration-only concerns that are not manifest fields, e.g. the source URL.)
+- Absent Layer 3, the catalog synthesizes the manifest field-by-field, taking each field from the highest-precedence layer that provides it and falling through toward Layer 0.
+- `magic_seal` is never authored across Layers 0–2; for a synthesized manifest the catalog computes the entry-file SHA-256 from the fetched source at registration time (§3.2, MGP_SECURITY.md §8). A Layer 3 manifest MAY carry a pre-computed `magic_seal`, but the catalog SHOULD recompute it from the fetched bytes and reject a mismatch.
+
+### 9.3 `[tool.cloto.mgp]` (Layer 1)
+
+A Python connector MAY advertise catalog metadata through a `[tool.cloto.mgp]` table in its `pyproject.toml`, following the PEP 518 `[tool.*]` convention. The table is **advisory hint** data: a catalog reads it to fill manifest fields the project's `[project]` block cannot express (category, trust posture, icon, environment contract, …).
+
+All keys are optional; a catalog falls back to Layer 0 (or its own defaults) for any key not present.
+
+| Key | Type | Maps to | Notes |
+|---|---|---|---|
+| `name` | string | `name` | Human-readable display name. Defaults to `[project].name` (Layer 0) when absent. |
+| `id` | string | `id` | kebab-case (§3). Defaults to `[project].name` with any `cloto-mcp-` prefix stripped. |
+| `category` | string | `category` | Open vocabulary (§3). |
+| `trust_level` | string | `trust_level` | One of `core`/`standard`/`experimental`/`untrusted`. A *request* only — the catalog still enforces Security Invariant 3 (§3.1). |
+| `icon` | string | `icon` | UI hint. |
+| `tags` | string[] | `tags` | |
+| `host_compatibility` | string[] | `host_compatibility` | |
+| `env_vars` | array of tables | `env_vars` | Each `{ name, default?, description? }` (§4 `EnvVarDef`). |
+| `optional_env_vars` | array of tables | `optional_env_vars` | Same shape. |
+| `auto_restart` | boolean | `auto_restart` | |
+| `directory` | string | `install.directory` | Subdirectory inside the source tree (monorepo servers). |
+| `required_mgp_version` | string | *(catalog metadata)* | Minimum MGP spec version this connector targets, e.g. `"0.7"`. The catalog records it for compatibility gating; it is not a `ConnectorManifest` field in v1. |
+
+Fields not expressible in `[tool.cloto.mgp]` — notably `install.source` (where to fetch from) and the computed `magic_seal` — are supplied by Layer 2 at registration time and by the catalog respectively.
+
+Example (`pyproject.toml`):
+
+```toml
+[project]
+name = "cloto-mcp-cscheduler"
+version = "0.4.0-alpha.4"
+description = "Cloto MCP Server: CScheduler intentionality + scheduling with operations log and revert"
+
+[tool.cloto.mgp]
+id = "cscheduler"
+category = "tool"
+trust_level = "core"
+icon = "calendar-clock"
+tags = ["core", "scheduler", "intentionality"]
+auto_restart = true
+required_mgp_version = "0.7"
+directory = "servers/cscheduler"
+
+[[tool.cloto.mgp.env_vars]]
+name = "CSCHEDULER_DB_PATH"
+description = "SQLite database path"
+```
+
+### 9.4 Registration Principals (informative)
+
+Layered provisioning is **principal-agnostic**: the same synthesis applies regardless of who initiates registration. v1 catalogs (ClotoHub.dev) gate registration to human administrators authenticated through the platform session. A future revision MAY accept a machine identity (an automated agent presenting an API token) on the same import path, so that an agent can register or update a connector on its own behalf; the synthesis rules above do not change. Wiring machine-identity authentication is out of scope for v1 and is tracked separately by the catalog implementation.
+
+### 9.5 Authority
+
+`schemas/connector/v1.json` remains the normative schema for the **output** `cloto-connector.json`. `[tool.cloto.mgp]` is an **input convention**, not part of the connector manifest wire format; its reference parser lives in the catalog / SDK implementations (`mgp-rs` for ClotoHub.dev's Rust catalog; a Python reader MAY be added to `mgp-py` for server-side tooling). Because Layer 1 only ever *feeds* fields that already exist in §3–§4, adding `[tool.cloto.mgp]` requires no change to the v1 connector schema `$id`.
