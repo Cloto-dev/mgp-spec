@@ -212,6 +212,7 @@ All keys are optional; a catalog falls back to Layer 0 (or its own defaults) for
 | `env_vars` | array of tables | `env_vars` | Each `{ name, default?, description? }` (§4 `EnvVarDef`). |
 | `optional_env_vars` | array of tables | `optional_env_vars` | Same shape. |
 | `auto_restart` | boolean | `auto_restart` | |
+| `dependencies` | string[] | `install.dependencies` | Extra dependency identifiers the host resolves in addition to the source's own lockfile (§4 `InstallSpec`). For monorepo connectors this names shared sibling packages (e.g. `"common"`) the host must provision before launch. |
 | `directory` | string | `install.directory` | Subdirectory inside the source tree (monorepo servers). |
 | `required_mgp_version` | string | *(catalog metadata)* | Minimum MGP spec version this connector targets, e.g. `"0.7"`. The catalog records it for compatibility gating; it is not a `ConnectorManifest` field in v1. |
 
@@ -233,6 +234,7 @@ icon = "calendar-clock"
 tags = ["core", "scheduler", "intentionality"]
 auto_restart = true
 required_mgp_version = "0.7"
+dependencies = ["common"]
 directory = "servers/cscheduler"
 
 [[tool.cloto.mgp.env_vars]]
