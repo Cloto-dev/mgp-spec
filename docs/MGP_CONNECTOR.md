@@ -110,11 +110,11 @@ The `install` block is required. It declares how to materialize the connector on
 | `type` | Required fields | Optional fields |
 |---|---|---|
 | `git` | `url` | `reference` (default `""`), `subdir` |
-| `raw_url` | `url` (http/https) | `sha256` (64 hex chars when present) |
+| `raw_url` | `url` (http/https) | `sha256` (64 hex chars when present), `subdir` |
 | `pypi` | `package` (no whitespace) | `version` (PEP 440 pin) |
 | `docker` | `image` (no whitespace) | `tag` (defaults to `latest`; catalogs SHOULD reject `latest` for production registration) |
 
-`git.reference = ""` means "use the upstream default branch, resolved at fetch time". `raw_url.sha256` is optional but strongly recommended; for binary releases the consumer cannot re-derive, treat it as required at the catalog policy layer. `docker.tag = "" | "latest" | null` are all considered unpinned by the SDK's `is_unpinned()` helper.
+`git.reference = ""` means "use the upstream default branch, resolved at fetch time". `raw_url.sha256` is optional but strongly recommended; for binary releases the consumer cannot re-derive, treat it as required at the catalog policy layer. `raw_url.subdir` names the subdirectory inside the extracted archive tree where the connector lives (after the consumer strips a single shared top-level prefix, GitHub-archive-style) — it lets one monorepo tarball serve multiple connectors and mirrors `git.subdir`. `docker.tag = "" | "latest" | null` are all considered unpinned by the SDK's `is_unpinned()` helper.
 
 ## 6. Out of Scope for v1 (Planned for v2)
 
