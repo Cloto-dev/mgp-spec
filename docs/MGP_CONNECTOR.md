@@ -36,7 +36,7 @@ When the two ever disagree, the SDK is the truth at the wire level (deserializat
 |---|---|---|
 | `spec_version` | integer | `= 1` |
 | `connector_type` | string | `= "mgp_server"` |
-| `id` | string | kebab-case (`[a-z0-9]([a-z0-9-]*[a-z0-9])?`) |
+| `id` | string | `[a-z0-9]([a-z0-9_-]*[a-z0-9])?` — kebab-case RECOMMENDED, see §3.3 |
 | `name` | string | non-empty |
 | `description` | string | (any) |
 | `version` | string | non-empty; SHOULD follow SemVer |
@@ -54,6 +54,34 @@ Mirrors MGP_SECURITY.md §2.3. The catalog layer enforces the MGP 0.6.3-draft Se
 MGP_SECURITY.md §8 L0 Magic Seal. For v1 connectors the seal covers a single entry-file at registration time. Integrity of the remaining files in the source tree is delegated to the package manager's lockfile (`uv.lock`, `Cargo.lock`, etc.) — see §6.1 for the rationale and the multi-file plan.
 
 The format is `sha256:` followed by 64 lowercase hex characters. Catalog implementations MUST reject any other shape, including uppercase hex, missing prefix, or non-SHA-256 algorithms. Future revisions of this schema may add additional algorithms; the prefix discriminant exists for that reason.
+
+### 3.3 `id` — identifier charset
+
+`id` MUST match `[a-z0-9]([a-z0-9_-]*[a-z0-9])?`: ASCII lowercase letters,
+digits, hyphens, and underscores, starting and ending with an alphanumeric.
+kebab-case (hyphens only) is the RECOMMENDED style for new connectors.
+
+**Why underscores are in the MUST charset.** On hosts that unify ids (e.g.
+ClotoCore since the category-prefix retirement), the connector id is not just
+a catalog key — it is the *same string* used as the host-side server id,
+flowing catalog → install → host database → access grants unchanged. Those
+hosts are frequently Python-centric, where snake_case identifiers arise
+naturally (`agent_utils`). Restricting the manifest layer to kebab-case while
+the host layer accepts underscores created a split id space discovered only
+at import time; the charsets are congruent by design so an id valid on the
+host is valid on the wire.
+
+**Why hyphens carry a host-side caveat.** Some hosts derive environment
+variable names from server ids (e.g. `{ID}_MODEL` uppercased). A hyphen is
+not a valid character in an environment variable name, so ids of servers
+that participate in such derivation (reasoning engines, notably) SHOULD
+avoid hyphens. This is a host-integration concern, not a wire-format
+restriction — the schema accepts both characters.
+
+Both directions of the historical constraint remain valid: every id accepted
+by the pre-2026-07 kebab-only pattern is still accepted (the change is purely
+additive), and validators MUST reject uppercase, leading/trailing separators,
+and any character outside the set.
 
 ## 4. Optional Top-Level Fields
 
@@ -203,7 +231,7 @@ All keys are optional; a catalog falls back to Layer 0 (or its own defaults) for
 | Key | Type | Maps to | Notes |
 |---|---|---|---|
 | `name` | string | `name` | Human-readable display name. Defaults to `[project].name` (Layer 0) when absent. |
-| `id` | string | `id` | kebab-case (§3). Defaults to `[project].name` with any `cloto-mcp-` prefix stripped. |
+| `id` | string | `id` | §3.3 charset (kebab-case RECOMMENDED). Defaults to `[project].name` with any `cloto-mcp-` prefix stripped. |
 | `category` | string | `category` | Open vocabulary (§3). |
 | `trust_level` | string | `trust_level` | One of `core`/`standard`/`experimental`/`untrusted`. A *request* only — the catalog still enforces Security Invariant 3 (§3.1). |
 | `icon` | string | `icon` | UI hint. |
