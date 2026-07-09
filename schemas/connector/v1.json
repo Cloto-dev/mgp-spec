@@ -29,9 +29,9 @@
       "const": "mgp_server"
     },
     "id": {
-      "description": "Stable connector identifier (kebab-case, ASCII lowercase / digits / hyphen; no leading or trailing hyphen).",
+      "description": "Stable connector identifier: ASCII lowercase / digits / hyphen / underscore, starting and ending with an alphanumeric. kebab-case is the RECOMMENDED style; underscores are accepted so host-side server ids (snake_case is idiomatic on Python-centric hosts, and the id flows host DB ↔ catalog unchanged) need no respelling. See MGP_CONNECTOR.md §3.3.",
       "type": "string",
-      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+      "pattern": "^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$"
     },
     "name": {
       "description": "Human-readable name.",
