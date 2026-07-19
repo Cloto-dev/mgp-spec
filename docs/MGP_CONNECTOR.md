@@ -51,7 +51,7 @@ Mirrors MGP_SECURITY.md §2.3. The catalog layer enforces the MGP 0.6.3-draft Se
 
 ### 3.2 `magic_seal`
 
-MGP_SECURITY.md §8 L0 Magic Seal. For v1 connectors the seal covers a single entry-file at registration time, and nothing else. The remaining files in the source tree are not attested by v1 — see §6.1, which also records a withdrawn claim about lockfile coverage that earlier revisions of this section made.
+MGP_SECURITY.md §8 L0 Magic Seal. For v1 connectors the seal covers a single entry-file at registration time, and nothing else. The remaining files in the source tree are not attested by v1 — see §6.1, which also records a withdrawn claim about lockfile coverage that earlier revisions of this section made. A **catalog** seal MAY additionally bind the distributed archive's digest and length into its signed message (§6.1, seal message v2); that is a property of the catalog's signed record, not of this field.
 
 The format is `sha256:` followed by 64 lowercase hex characters. Catalog implementations MUST reject any other shape, including uppercase hex, missing prefix, or non-SHA-256 algorithms. Future revisions of this schema may add additional algorithms; the prefix discriminant exists for that reason.
 
@@ -181,17 +181,70 @@ message, it is authenticated only by whatever protects the catalog response, and
 adversary able to forge that response can substitute both the archive and its declared
 digest while the signed entry-file assertion still verifies.
 
-v2 candidates:
+#### Artifact binding (seal message v2)
 
-- Binding the distributed artifact's digest and length into the signed message, so that
-  artifact identity and seal identity cannot diverge.
+The first of the candidates below is now specified. It does **not** change the connector
+manifest: `magic_seal` still names one entry-file, and the v1 schema and `$id` are
+untouched. What it changes is the **catalog seal** — the signed record a catalog issues
+about a connector version — so that the artifact a consumer downloads is part of what was
+signed.
+
+A v2 catalog seal signs the following byte string (each line terminated by `\n`,
+including the last):
+
+```text
+mgp-seal/v2
+connector_id=<id>
+version=<semver>
+entry_point_sha256=<64-char lowercase hex>
+archive_sha256=<64-char lowercase hex>
+archive_length=<decimal byte count>
+```
+
+The v1 message is the same string without the last two lines and with `mgp-seal/v1` as
+its first line. The two are therefore domain-separated: a v1 signature can never be
+replayed as a v2 one.
+
+`archive_length` is signed alongside the digest so that a consumer knows the expected
+size *before* streaming a body, rather than discovering a mismatch only at the final hash
+comparison. This mirrors TUF, which signs target hash and length together.
+
+A consumer that verifies catalog seals:
+
+- **MUST** reconstruct the v2 message when the seal record carries an artifact binding,
+  and the v1 message when it does not. Reconstructing the wrong one fails verification —
+  by design, not by accident.
+- **MUST**, before extraction, compare the archive it downloaded against the *signed*
+  `archive_sha256` and `archive_length` whenever the seal carries them. Verifying a
+  signature over a digest that is never compared to the delivered bytes provides no
+  integrity at all.
+- **MUST NOT** treat a digest supplied elsewhere in the catalog response as authenticated
+  on its own. Where both are present and they disagree, the served value is contradicting
+  a signed one, which is itself evidence of tampering.
+- **SHOULD** treat a binding it cannot parse as *unverifiable* rather than as absent.
+  Silently falling back to the v1 message would reconstruct a different assertion than
+  the issuer signed and report a legitimate seal as tampered.
+
+**Downgrade remains open.** For a `(connector_id, version)` sealed under v1 before v2
+existed, that older signature stays genuinely valid, so an adversary who can forge a
+catalog response MAY serve it in place of the v2 seal and escape the artifact binding.
+The message format cannot close this: a verifier has to know that a given connector
+*should* carry a v2 seal. Re-sealing a corpus under v2 and then refusing v1 is the
+intended path, and until a verifier does both, accepting v1 leaves the weaker claim
+reachable. Implementations SHOULD document which of the two they are doing.
+
+Reference implementation: `mgp-seal` ≥ 0.4.1 (`canonical_message_v2`) in the
+[`Cloto-dev/mgp-rs`](https://github.com/Cloto-dev/mgp-rs) workspace.
+
+Remaining v2 candidates:
+
 - Source-tree Merkle root (single hash covering every file at registration time), for
   verification after extraction and for archive-format-independent identity.
 - Per-asset seals when `install.assets` (§6.2) is declared.
 
 The single-file scope in v1 was chosen because it costs almost no protocol surface. That
 remains true, but it does not extend to the integrity claim this section previously made
-for it: v1 detects tampering with the entry-file, and no more.
+for it: a v1 seal detects tampering with the entry-file, and no more.
 
 ### 6.2 Platform Compatibility & Pre-Built Binaries
 
