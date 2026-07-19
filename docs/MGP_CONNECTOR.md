@@ -51,7 +51,7 @@ Mirrors MGP_SECURITY.md §2.3. The catalog layer enforces the MGP 0.6.3-draft Se
 
 ### 3.2 `magic_seal`
 
-MGP_SECURITY.md §8 L0 Magic Seal. For v1 connectors the seal covers a single entry-file at registration time. Integrity of the remaining files in the source tree is delegated to the package manager's lockfile (`uv.lock`, `Cargo.lock`, etc.) — see §6.1 for the rationale and the multi-file plan.
+MGP_SECURITY.md §8 L0 Magic Seal. For v1 connectors the seal covers a single entry-file at registration time, and nothing else. The remaining files in the source tree are not attested by v1 — see §6.1, which also records a withdrawn claim about lockfile coverage that earlier revisions of this section made.
 
 The format is `sha256:` followed by 64 lowercase hex characters. Catalog implementations MUST reject any other shape, including uppercase hex, missing prefix, or non-SHA-256 algorithms. Future revisions of this schema may add additional algorithms; the prefix discriminant exists for that reason.
 
@@ -150,14 +150,48 @@ These were considered during v1 design and intentionally deferred. The plan is t
 
 ### 6.1 Multi-File Seal Coverage
 
-v1 binds `magic_seal` to a single entry-file. Integrity of the remaining files in a connector's source tree is delegated to the lockfile of `install.package_manager` (`uv.lock`, `Cargo.lock`).
+v1 binds `magic_seal` to a single entry-file. **No part of v1 attests the remaining files in a connector's source tree.**
+
+> **Correction (2026-07-20).** Earlier revisions of this section stated that the integrity
+> of those remaining files was "delegated to the lockfile of `install.package_manager`
+> (`uv.lock`, `Cargo.lock`)". That claim was wrong and is withdrawn.
+>
+> A package-manager lockfile pins the *resolved third-party dependencies* of a project; it
+> does not attest the project's own source files. uv documents `uv.lock` as recording "the
+> exact resolved versions that are installed in the project environment". Cargo documents
+> `Cargo.lock` as ensuring that "the exact same dependencies and versions are used", and
+> warns in the same passage that "this determinism can give a false sense of security".
+> Neither covers first-party code.
+>
+> The gap is widest exactly where modern packaging puts implementations. When a connector's
+> entry-file is a thin shim that re-exports an installed package, the entry-file hash can
+> stay byte-identical across releases that rewrite the whole implementation — so a seal that
+> changes only because `version` changed can read as though the code was re-attested when it
+> was not.
+
+Implementations MUST NOT present a v1 `magic_seal` as evidence that a connector's
+distributed tree is unmodified. It attests the entry-file, the connector id, and the
+version, and a conforming consumer SHOULD surface those two properties separately rather
+than as a single "sealed" status.
+
+A catalog MAY provide artifact-level integrity by other means — for example serving a
+content-addressed archive whose digest the consumer verifies before extraction. Such a
+mechanism lives outside the seal: unless the digest is itself bound into the signed
+message, it is authenticated only by whatever protects the catalog response, and an
+adversary able to forge that response can substitute both the archive and its declared
+digest while the signed entry-file assertion still verifies.
 
 v2 candidates:
 
-- Source-tree Merkle root (single hash covering every file at registration time).
+- Binding the distributed artifact's digest and length into the signed message, so that
+  artifact identity and seal identity cannot diverge.
+- Source-tree Merkle root (single hash covering every file at registration time), for
+  verification after extraction and for archive-format-independent identity.
 - Per-asset seals when `install.assets` (§6.2) is declared.
 
-The package-manager-lockfile delegation in v1 was chosen because it costs zero protocol surface, reuses the existing audit signal of the runtime ecosystem, and is sufficient for the threat model the catalog enforces (post-publish tamper detection). It is not sufficient for adversarial supply-chain attacks against the lockfile itself; v2's Merkle option exists for that scenario.
+The single-file scope in v1 was chosen because it costs almost no protocol surface. That
+remains true, but it does not extend to the integrity claim this section previously made
+for it: v1 detects tampering with the entry-file, and no more.
 
 ### 6.2 Platform Compatibility & Pre-Built Binaries
 
