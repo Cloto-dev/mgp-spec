@@ -1,9 +1,9 @@
 # MGP — Multi-Agent Gateway Protocol
 
-**Version:** 0.7.0-draft
+**Version:** 0.8.0-draft
 **Status:** Draft
 **Authors:** ClotoCore Project
-**Date:** 2026-05-07
+**Date:** 2026-07-30
 
 ---
 
@@ -217,12 +217,27 @@ When MCP officially adopts functionality equivalent to an MGP extension, MGP wil
 3. **Document the migration path** in the Version History (§18) with concrete
    before/after examples
 
+#### Base-Revision Tracking Policy (added 0.8.0)
+
+The commitment above covers MCP adopting MGP-equivalent features. The inverse also
+happens: MCP may revise the base protocol MGP builds on. When a new MCP protocol
+revision is published, MGP commits to publishing an **adaptation assessment** (impact
+analysis and migration plan) within one MGP minor version.
+
+The first instance is [MGP_MODERNIZATION_DESIGN.md](MGP_MODERNIZATION_DESIGN.md),
+responding to MCP 2026-07-28 (stateless core): capability negotiation gains a
+modern-era path via the official `dev.cloto/mgp` extension (§2.6), the Permission
+Flow re-anchors on `server/discover` with an MRTR backstop (§3.8), unsolicited push
+is scoped to stdio and legacy-era HTTP (§11.5, §13.1), and MGP-specific observability
+fields begin migrating to MCP's OpenTelemetry `_meta` conventions under the
+commitment above.
+
 #### Extension Migration Categories
 
 | Category | MGP Extensions | Migration Likelihood | Notes |
 |----------|---------------|---------------------|-------|
 | Security | §3-5, §7 | Medium | MCP has discussed auth; MGP will adapt |
-| Observability | §6 | Medium | OpenTelemetry integration is common |
+| Observability | §6 | Medium | **Activated by MCP 2026-07-28** (OTel `_meta` trace-context conventions); dual support in 0.8, MGP-specific fields removed no earlier than 0.9 |
 | Lifecycle | §11 | Low | MCP has no lifecycle primitives planned |
 | Communication | §12, §13 | Low-Medium | MCP Streamable HTTP addresses some |
 | Discovery | §15 | Low | Static config is MCP's current approach |
