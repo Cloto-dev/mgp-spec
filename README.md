@@ -1,7 +1,7 @@
 # MGP — Multi-Agent Gateway Protocol
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-draft%20v0.7.0-orange.svg)](docs/MGP_SPEC.md)
+[![Status](https://img.shields.io/badge/status-draft%20v0.8.0-orange.svg)](docs/MGP_SPEC.md)
 
 > Strict superset of MCP (Model Context Protocol) that adds protocol-level security, access control, and observability while maintaining full backward compatibility. Any valid MCP message is a valid MGP message. Any MGP server can operate as a standard MCP server when connected to a client that does not support MGP extensions.
 
@@ -33,7 +33,7 @@ See [MGP_GUIDE.md §17.5 Staged Adoption Path](docs/MGP_GUIDE.md#175-staged-adop
 
 ## Status
 
-- Current draft: **v0.7.0-draft** (2026-05-31)
+- Current draft: **v0.8.0-draft** (2026-07-30)
 - See [CHANGELOG.md](CHANGELOG.md) for version history
 - License: **MIT** — this specification (and future SDKs) is MIT-licensed independently from ClotoCore (see [MGP_GUIDE.md §17.4 License and Distribution Strategy](docs/MGP_GUIDE.md#174-license-and-distribution-strategy))
 

@@ -1,6 +1,6 @@
 # MGP — Security & Foundation
 
-> Part of the [MGP Specification](MGP_SPEC.md) (v0.7.0-draft, 2026-05-31)
+> Part of the [MGP Specification](MGP_SPEC.md) (v0.8.0-draft, 2026-07-30)
 > This document covers §2-§7. For overview and architecture, see [MGP_SPEC.md](MGP_SPEC.md).
 
 **Section Map:** §1 [MGP_SPEC.md](MGP_SPEC.md) · §2-§7 [MGP_SECURITY.md](MGP_SECURITY.md) · §11-§14 [MGP_COMMUNICATION.md](MGP_COMMUNICATION.md) · §15-§16 [MGP_DISCOVERY.md](MGP_DISCOVERY.md) · §17-§20 [MGP_GUIDE.md](MGP_GUIDE.md)
@@ -11,10 +11,20 @@
 
 ### 2.1 Overview
 
-MGP capability negotiation piggybacks on the standard MCP `initialize` handshake. The client
-includes an `mgp` field in its `capabilities` object. The server responds with its supported
-MGP capabilities. If either side omits the `mgp` field, the connection operates in standard
-MCP mode.
+MGP capability negotiation has one activation path per MCP era. Era terminology follows
+the MCP specification: **legacy** for the handshake-based revisions (2025-11-25 and
+earlier), **modern** for the stateless revisions (2026-07-28 and later), **dual-era** for
+implementations supporting both.
+
+- **Legacy era** (§2.2–§2.3): negotiation piggybacks on the standard MCP `initialize`
+  handshake. The client includes an `mgp` field in its `capabilities` object; the server
+  responds with its supported MGP capabilities.
+- **Modern era** (§2.6): negotiation uses MCP's official extension mechanism under the
+  identifier `dev.cloto/mgp`. There is no handshake; the server advertises in
+  `server/discover` and the client declares per request.
+
+If either side omits the declaration, the connection operates in standard MCP mode in
+both eras.
 
 ### 2.2 Client → Server (initialize request)
 
@@ -160,6 +170,61 @@ MGP will be declared 1.0.0 (stable) when all of the following criteria are met:
    breaking changes to the core protocol (§2-7)
 4. The `mgp-validate` tool can verify compliance at all Tiers
 
+### 2.6 Modern-Era Declaration (MCP 2026-07-28+)
+
+The MCP 2026-07-28 revision removes the `initialize` handshake: every request carries
+its protocol version and client capabilities in `_meta`, and servers implement the
+mandatory `server/discover` RPC. In the modern era, MGP negotiation therefore moves to
+MCP's official extension mechanism under the identifier **`dev.cloto/mgp`**.
+
+**Server → Client**: the server advertises MGP in the `extensions` map of the
+capabilities returned by `server/discover`. The settings object carries the same fields
+as the §2.3 initialize response, with identical semantics:
+
+```json
+{
+  "resultType": "complete",
+  "supportedVersions": ["2026-07-28", "2025-11-25"],
+  "capabilities": {
+    "tools": {},
+    "extensions": {
+      "dev.cloto/mgp": {
+        "version": "0.8.0",
+        "extensions": ["permissions", "tool_security", "audit"],
+        "permissions_required": ["shell", "network"],
+        "server_id": "mind.cerebras",
+        "trust_level": "standard"
+      }
+    }
+  }
+}
+```
+
+**Client → Server**: the client declares MGP support in the per-request
+`io.modelcontextprotocol/clientCapabilities` `_meta` field:
+
+```json
+{ "extensions": { "dev.cloto/mgp": { "version": "0.8.0", "extensions": ["permissions"] } } }
+```
+
+**Rules:**
+
+1. The §2.4 negotiation rules apply unchanged — intersection of extensions,
+   standard-MCP fallback, semver compatibility. Only the carrier moves from the
+   handshake to `server/discover` plus per-request metadata.
+2. Per MCP's extension-negotiation semantics, if either party does not advertise
+   `dev.cloto/mgp`, both revert to core protocol behavior. This is the spec-backed
+   form of MGP's graceful degradation.
+3. A dual-era server MUST advertise the same MGP capability set on both paths
+   (the §2.3 initialize response and the `server/discover` result).
+4. The legacy `capabilities.mgp` field and this extension are era-bound: legacy
+   clients use §2.2–§2.3, modern clients use this section. They MUST NOT be mixed
+   within one request.
+
+The §2.3 note on `trust_level` being informational applies unchanged: the kernel
+determines the effective trust level from configuration and Magic Seal verification
+regardless of the declaration path.
+
 ---
 
 ## 3. Permission Declarations
@@ -236,6 +301,13 @@ Server                          Client
 
 Both methods flow Client → Server, consistent with MCP's transport model where
 the client (kernel) is always the initiator.
+
+> **Modern era (MCP 2026-07-28+):** the `initialize` exchange that anchors this
+> diagram does not exist. The flow re-anchors on `server/discover`: the client reads
+> `permissions_required` from the `dev.cloto/mgp` extension settings (§2.6), applies
+> the same approval policy (§3.3), and delivers decisions with the same
+> `mgp/permission/await` / `mgp/permission/grant` methods **before issuing the first
+> tool call**. See §3.8 for the stateless grant-conveyance rules.
 
 ### 3.5 Permission Await Method
 
@@ -369,6 +441,30 @@ kernel and, where available, by OS-level isolation (see MGP_ISOLATION_DESIGN.md)
 Custom permissions (reverse-domain notation) MAY define their own scope fields.
 The kernel treats unrecognized scope fields as opaque metadata and passes them to
 the enforcement layer without validation.
+
+### 3.8 Permission Flow in the Modern Era
+
+The MCP 2026-07-28 revision has no handshake and no protocol session, so the §3.4 gate
+(between the `initialize` response and the `initialized` notification) is re-anchored,
+and grant state must be conveyed explicitly:
+
+1. **Discover-driven upfront grant (primary).** Before the first tool call, the client
+   calls `server/discover`, reads `permissions_required` from the `dev.cloto/mgp`
+   settings (§2.6), applies its approval policy (§3.3), and delivers the decision via
+   `mgp/permission/grant` (§3.6). The §3.5/§3.6 methods are unchanged — only the gate
+   position moves.
+2. **MRTR enforcement backstop.** A server receiving a request that requires an
+   ungranted permission SHOULD return `resultType: "input_required"` whose
+   `inputRequests` entry describes the needed grant, rather than trusting the client
+   to have gated. The client retries the request with the grant attached.
+3. **Stateless grant conveyance.** With no session to persist grants, the client
+   attaches them per request in `_meta` under `dev.cloto/mgp/grants` — either the
+   grant object (§3.6 format) or an opaque server-minted grant handle previously
+   returned by the server. A server MUST treat absent grant metadata as ungranted.
+4. **Transport allowance.** On stdio, where the server process serves exactly one
+   client, a server MAY cache grants for the process lifetime. On modern Streamable
+   HTTP a server MUST NOT assume cross-request memory unless a grant handle is
+   presented.
 
 ---
 

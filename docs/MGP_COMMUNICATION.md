@@ -1,6 +1,6 @@
 # MGP — Communication & Lifecycle
 
-> Part of the [MGP Specification](MGP_SPEC.md) (v0.7.0-draft, 2026-05-31)
+> Part of the [MGP Specification](MGP_SPEC.md) (v0.8.0-draft, 2026-07-30)
 > This document covers §11-§14. For overview and architecture, see [MGP_SPEC.md](MGP_SPEC.md).
 
 **Section Map:** §1 [MGP_SPEC.md](MGP_SPEC.md) · §2-§7 [MGP_SECURITY.md](MGP_SECURITY.md) · §11-§14 [MGP_COMMUNICATION.md](MGP_COMMUNICATION.md) · §15-§16 [MGP_DISCOVERY.md](MGP_DISCOVERY.md) · §17-§20 [MGP_GUIDE.md](MGP_GUIDE.md)
@@ -172,6 +172,12 @@ to `draining` state, and then closes the transport.
 State transition notification emitted by the server. This is a **Layer 2 protocol
 notification**, not a kernel tool.
 
+> **Era availability:** unsolicited server-to-client notifications have no channel on
+> modern Streamable HTTP (MCP 2026-07-28+), whose only server-initiated stream is
+> `subscriptions/listen` with a closed set of subscription types. This notification is
+> available on stdio and on legacy-era HTTP only; modern-HTTP hosts poll
+> `mgp.health.status` instead. See MGP_MODERNIZATION_DESIGN.md §5.2.
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -224,6 +230,12 @@ poor UX and timeout risks.
 
 MGP defines streaming as an optional capability where servers can emit partial results
 before the final response.
+
+> **Era note:** stream chunks, progress reports, and gap re-delivery all correlate to
+> an initiating request and therefore survive both MCP eras — on modern Streamable
+> HTTP (2026-07-28+) they ride the response stream of that request; on stdio the pipe
+> is unchanged. `mgp/stream/cancel` remains an ordinary client→server method in both
+> eras.
 
 ### 12.2 Capability Declaration
 
@@ -463,6 +475,13 @@ notifications, and callback requests.
 - **Layer 3 (Protocol Methods):** `mgp/callback/respond` — kernel responds to callback requests
 - **Layer 4 (Kernel Tools):** `mgp.events.subscribe`, `mgp.events.unsubscribe` — event
   subscription management; `mgp.events.replay` — catch-up replay for missed events
+
+> **Era availability:** the Layer 2 unsolicited notifications above
+> (`notifications/mgp.callback.request`, `notifications/mgp.event`) are available on
+> stdio and on legacy-era HTTP only; modern Streamable HTTP (MCP 2026-07-28+) has no
+> extensible server-initiated channel. Modern-HTTP hosts obtain equivalent signals by
+> polling the corresponding kernel tools (e.g. `mgp.events.replay`). See
+> MGP_MODERNIZATION_DESIGN.md §5.2.
 
 ### 13.2 Event Subscription — Kernel Tools
 
