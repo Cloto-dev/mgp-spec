@@ -24,9 +24,9 @@
       "const": 1
     },
     "connector_type": {
-      "description": "Connector kind. v1 only accepts `mgp_server`.",
+      "description": "Connector kind. `mgp_server` is a server the host starts and speaks MGP to; `ui_module` ships files the host serves and starts nothing. A host that does not know a type refuses the connector rather than installing it with reduced privilege.",
       "type": "string",
-      "const": "mgp_server"
+      "enum": ["mgp_server", "ui_module"]
     },
     "id": {
       "description": "Stable connector identifier: ASCII lowercase / digits / hyphen / underscore, starting and ending with an alphanumeric. kebab-case is the RECOMMENDED style; underscores are accepted so host-side server ids (snake_case is idiomatic on Python-centric hosts, and the id flows host DB ↔ catalog unchanged) need no respelling. See MGP_CONNECTOR.md §3.3.",
@@ -99,9 +99,46 @@
     "changelog": {
       "description": "Optional CHANGELOG content (Markdown). Catalog UIs MAY render this on a connector detail page.",
       "type": ["string", "null"]
+    },
+    "ui": {
+      "description": "Panels this connector ships for the host to serve. Independent of `connector_type`: a server may ship a panel and a `ui_module` is a connector that ships nothing else.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "panels": {
+          "description": "Panels the host lists and serves. Each entry's files live under the directory holding this manifest.",
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/PanelDeclaration" }
+        }
+      }
     }
   },
   "$defs": {
+    "PanelDeclaration": {
+      "type": "object",
+      "description": "One panel a connector ships. The id is scoped to its connector; a host that lists panels from several connectors namespaces them.",
+      "required": ["id", "name"],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "description": "Panel identifier, unique within this connector.",
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$"
+        },
+        "name": { "description": "Display name.", "type": "string", "minLength": 1 },
+        "description": { "description": "Short description for the host's UI.", "type": "string", "default": "" },
+        "version": { "description": "Panel version, independent of the connector's.", "type": "string", "default": "" },
+        "entry": { "description": "Document the host loads, relative to the manifest's directory.", "type": "string", "default": "index.html" },
+        "icon": { "description": "Icon hint for the host's UI.", "type": ["string", "null"], "default": null },
+        "requires": {
+          "description": "Host requests this panel may make, as `\"<METHOD> <path>\"`. Declaring is not granting: a host narrows this by its own policy and never widens it.",
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" }
+        }
+      }
+    },
     "InstallSpec": {
       "type": "object",
       "description": "Install and runtime declaration block.",
@@ -110,14 +147,14 @@
       "properties": {
         "source": { "$ref": "#/$defs/SourceSpec" },
         "package_manager": {
-          "description": "Package manager used to materialize the connector. v1 only accepts `uv`.",
+          "description": "Package manager that materializes the connector. `none` for a connector the host does not build.",
           "type": "string",
-          "const": "uv"
+          "enum": ["uv", "none"]
         },
         "runtime": {
-          "description": "Runtime language. One of `python`, `rust`, `node`.",
+          "description": "Runtime the host launches. `static` for a connector with nothing to launch.",
           "type": "string",
-          "enum": ["python", "rust", "node"]
+          "enum": ["python", "rust", "node", "static"]
         },
         "dependencies": {
           "description": "Extra dependencies the host should resolve in addition to the source's own lockfile.",

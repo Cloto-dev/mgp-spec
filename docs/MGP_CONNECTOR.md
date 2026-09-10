@@ -35,7 +35,7 @@ When the two ever disagree, the SDK is the truth at the wire level (deserializat
 | Field | Type | Constraint |
 |---|---|---|
 | `spec_version` | integer | `= 1` |
-| `connector_type` | string | `= "mgp_server"` |
+| `connector_type` | string | one of `mgp_server`, `ui_module` — see §3.4 |
 | `id` | string | `[a-z0-9]([a-z0-9_-]*[a-z0-9])?` — kebab-case RECOMMENDED, see §3.3 |
 | `name` | string | non-empty |
 | `description` | string | (any) |
@@ -83,6 +83,35 @@ by the pre-2026-07 kebab-only pattern is still accepted (the change is purely
 additive), and validators MUST reject uppercase, leading/trailing separators,
 and any character outside the set.
 
+### 3.4 `connector_type` — what the host does with the connector
+
+Two types are defined. They answer *what the host does with the files*, and nothing else:
+
+| Value | The host … |
+|---|---|
+| `mgp_server` | starts a process from the installed tree and speaks MGP/MCP to it |
+| `ui_module` | serves the installed files and starts nothing |
+
+The distinction exists because a caller asking about a connector is really asking one of two
+questions, and for a `ui_module` they have different answers: *can this host make sense of it*
+(yes — it knows the shape and will serve the files) and *does it start a process* (no — there is
+nothing to start). A host that collapsed them would have to choose between two wrong readings:
+refuse `ui_module` outright, or accept it everywhere and let the launch path treat a connector
+with no command as a connector whose command failed.
+
+A `ui_module` still carries a required `install` block: the files have to come from somewhere,
+and where they come from is what that block says. What it does not carry is a build — hence the
+`none` / `static` pairing in §5.
+
+**Unknown types.** A host that does not recognise a `connector_type` MUST refuse the connector.
+It MUST NOT fall back to a lower trust level: an unknown *trust level* degrades safely, because
+the host still knows how to run the thing and is only declining to extend privilege, while an
+unknown *type* means the host does not know how to launch it, how to talk to it, or which gate
+applies to its calls. "Run it with fewer permissions" is not a safe reading of "I do not know
+what this is". The refusal SHOULD name the manifest's `spec_version`, because a host meeting an
+unknown type is almost always an old host meeting a newer connector, and a bare "unknown" leaves
+the operator guessing.
+
 ## 4. Optional Top-Level Fields
 
 | Field | Type | Default | Notes |
@@ -94,6 +123,7 @@ and any character outside the set.
 | `optional_env_vars` | `EnvVarDef[]` | `[]` | Optional environment variables; hosts MAY pass through when set. |
 | `auto_restart` | boolean | `false` | Whether the host should auto-restart on unexpected exit. |
 | `changelog` | string &#124; null | `null` | Markdown CHANGELOG; catalogs MAY render on a detail page. |
+| `ui` | object | `{}` | Panels this connector ships for the host to serve — see §4.1. |
 
 `EnvVarDef` is `{ name: string, default?: string | null, description?: string | null }`.
 
@@ -105,9 +135,36 @@ and any character outside the set.
 
 Unknown top-level fields are ignored on deserialize to keep v1 → v2 evolution additive. Producers SHOULD NOT rely on this — write only the fields documented here.
 
+### 4.1 `ui` — panels a connector ships
+
+`ui.panels` is an array of `PanelDeclaration`. It is independent of `connector_type`: a server
+MAY ship a panel, and a `ui_module` is simply a connector that ships nothing else. Declaring
+panels here rather than deriving them from the type keeps the two axes separate — the `ui` block
+says *this connector has a face*, the type says *this connector starts a process*.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | string | yes | Panel identifier, unique **within this connector**; same charset as §3.3. A host listing panels from several connectors MUST namespace them, because a panel id is only unique inside the connector that ships it. |
+| `name` | string | yes | Display name. |
+| `description` | string | no (default `""`) | Short description for the host's UI. |
+| `version` | string | no (default `""`) | Panel version, independent of the connector's. |
+| `entry` | string | no (default `"index.html"`) | Document the host loads, relative to the directory holding the manifest. |
+| `icon` | string &#124; null | no (default `null`) | Icon hint. |
+| `requires` | string[] | no (default `[]`) | Host requests this panel may make, each `"<METHOD> <path>"`. |
+
+`requires` is written by the connector's author, so **declaring is not granting**: a host MUST
+treat it as a narrowing of what its own policy already allows, never as a widening. A host that
+serves panels MUST NOT proxy a request a panel did not declare, and MAY refuse one it did.
+
+Panel files are served by the host, not executed by it. A host SHOULD isolate them (the
+reference host loads a panel in a frame with no origin of its own, so a panel holds no host
+credential and can reach the host only through the requests above).
+
 ## 5. `install` Block
 
-The `install` block is required. It declares how to materialize the connector on the host machine.
+The `install` block is required for every connector type. It declares how to materialize the
+connector on the host machine — for a `ui_module` (§3.4) that is where the files come from, and
+nothing is built or launched.
 
 ```json
 {
@@ -125,11 +182,18 @@ The `install` block is required. It declares how to materialize the connector on
 | Field | Type | Required | Constraint |
 |---|---|---|---|
 | `source` | `SourceSpec` | yes | see §5.1 |
-| `package_manager` | string | yes | `= "uv"` in v1 |
-| `runtime` | string | yes | one of `python`, `rust`, `node` |
+| `package_manager` | string | yes | `uv`, or `none` for a connector the host does not build |
+| `runtime` | string | yes | one of `python`, `rust`, `node`, or `static` for a connector with nothing to launch |
 | `dependencies` | string[] | no (default `[]`) | extra deps to resolve in addition to the source's own lockfile |
 | `directory` | string | no (default `""`) | subdirectory inside the source tree; `""` means root |
 | `bin_name` | string &#124; null | no (default `null`) | binary name produced by the build; used when `runtime = "rust"`, ignored otherwise |
+
+The two fields pair with the type: a connector the host launches (`mgp_server`) MUST declare a
+real package manager and runtime, and a connector it does not (`ui_module`) MUST declare `none`
+and `static`. Both halves are required — the second stops a panel from claiming a runtime that
+would never run, which would make `connector_type` unreadable as an answer to "does this start a
+process"; the first stops a server from claiming it needs no build. The pairing is a cross-field
+rule, so it belongs to the SDK validator rather than the schema (§7).
 
 ### 5.1 `SourceSpec`
 
@@ -260,7 +324,7 @@ The v1 stance is "if you cannot run the source on this platform, declare a stric
 
 ## 7. Validation
 
-A connector manifest is **wire-valid** when it parses against the JSON Schema. It is **catalog-valid** when, additionally, the SDK's `validate_v1` returns `Ok(())`. The schema covers the structural envelope (required fields, types, regex shapes, enum sets). The SDK covers cross-field rules (`spec_version = 1`, `connector_type = "mgp_server"`, `magic_seal` shape, source-specific URL parsing, runtime ↔ binary-name compatibility hints, etc.).
+A connector manifest is **wire-valid** when it parses against the JSON Schema. It is **catalog-valid** when, additionally, the SDK's `validate_v1` returns `Ok(())`. The schema covers the structural envelope (required fields, types, regex shapes, enum sets). The SDK covers cross-field rules (`spec_version = 1`, `connector_type` within the defined set, the type ↔ `package_manager` / `runtime` pairing of §5, `magic_seal` shape, source-specific URL parsing, runtime ↔ binary-name compatibility hints, etc.).
 
 Catalog implementations SHOULD run both. Editors and CI tooling that consume only JSON Schema get the structural layer for free.
 
@@ -273,7 +337,15 @@ v1 will remain the only published version until the v2 hatches in §6 land. Whil
 - The `$id` URL of the schema staying stable.
 - Required fields and their types staying frozen.
 - The `SourceSpec` variant set being non-shrinking (additions are allowed, removals are not).
-- The `mgp_sdk` major version staying at 0.1.x for the lifetime of v1.
+- Enum sets being non-shrinking on the same terms: a value may be added, none is ever removed or
+  given a different meaning. A reader written against an earlier v1 therefore meets values it
+  does not know, and MUST refuse what it cannot interpret rather than guess — which for
+  `connector_type` is what §3.4 already requires.
+- The `mgp_sdk` crate staying source-compatible for the lifetime of v1: `validate_v1` keeps its
+  signature and `ValidationError` gains variants but loses none. (An earlier revision of this
+  section promised the crate would stay at `0.1.x`; it is past that — 0.6.x at the time of
+  writing — and the pinned-version promise is replaced by this compatibility one, which is what
+  consumers actually depend on.)
 
 v2 will be introduced under a new `$id` (`https://cloto.dev/schemas/connector/v2.json`), and v1 will be supported in parallel for at least one MGP minor release.
 
