@@ -742,6 +742,12 @@ This ensures that:
 - The original actor cannot gain access to tools beyond the delegating server's scope
 - Both parties must independently hold the required permission for the call to succeed
 
+When the intersection denies the tool, the kernel MUST refuse the call as a Tool
+Rejection with code `ACCESS_DENIED` (MGP_COMMUNICATION.md §14.7), not as a
+JSON-RPC error: the request is valid, and the answer is that this actor may not
+use this tool. Failures to verify the delegation envelope itself (§5.6.2, §5.6.3)
+remain JSON-RPC errors.
+
 #### 5.6.2 Delegation Chain Limits
 
 Delegation chains MUST NOT exceed a depth of **3** (original actor → delegate 1 →
