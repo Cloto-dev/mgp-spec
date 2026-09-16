@@ -851,6 +851,7 @@ JSON-RPC 2.0 reserves codes -32768 to -32000. MGP defines application-level code
 | 2000–2099 | Lifecycle errors |
 | 3000–3099 | Resource errors |
 | 4000–4099 | Validation errors |
+| 4100–4199 | Discovery errors |
 | 5000–5099 | External service errors |
 
 ### 14.3 Standard Error Codes
@@ -874,9 +875,28 @@ JSON-RPC 2.0 reserves codes -32768 to -32000. MGP defines application-level code
 | 4001 | `TOOL_NOT_FOUND` | Requested tool does not exist |
 | 4002 | `TOOL_DISABLED` | Tool exists but is currently disabled |
 | 4003 | `TOOL_NAME_CONFLICT` | Server attempted to register a tool with reserved `mgp.*` prefix |
+| 4004 | `RESOURCE_NOT_FOUND` | A resource the request names by identifier does not exist, or no longer exists (§14.3.1) |
+| 4101 | `SERVER_ALREADY_REGISTERED` | A server with the requested identifier is already registered |
 | 5000 | `UPSTREAM_ERROR` | External API returned an error |
 | 5001 | `UPSTREAM_TIMEOUT` | External API timed out |
 | 5002 | `UPSTREAM_UNAVAILABLE` | External API is unreachable |
+
+#### 14.3.1 `RESOURCE_NOT_FOUND`
+
+A request can be well-formed and still name something that is not there: a
+server id, an event subscription, a pending callback. `TOOL_NOT_FOUND` (4001)
+covers a missing tool; `RESOURCE_NOT_FOUND` covers every other resource a request
+refers to by identifier. Without it, an implementation has only two ways to
+answer, and both mislead the caller. `INVALID_TOOL_ARGS` says the arguments are
+malformed when they are not. A generic internal error says the fault is on the
+server side, which invites a retry that can never succeed.
+
+- Implementations MUST NOT use `RESOURCE_NOT_FOUND` for a missing tool; `TOOL_NOT_FOUND` remains the code for that case.
+- The `message` SHOULD name the kind of resource and the identifier as the caller supplied it (e.g. `Subscription 'sub-42' not found`), so a caller — including an LLM reading the error as a tool result — can tell which argument to correct.
+- `_mgp.category` SHOULD be `validation` and `_mgp.retryable` SHOULD be `false`: repeating the same identifier cannot succeed.
+- The code also covers a resource that existed and has been consumed — for example, a one-shot callback that has already been answered. Implementations that can tell the two states apart SHOULD say which one applies in `message`.
+- This is a JSON-RPC error (§14.1–14.6), not a Tool Rejection (§14.7): nothing was refused on policy grounds; the request referred to something that does not exist.
+- An implementation that must not reveal whether a resource exists to a caller without access to it MAY return `RESOURCE_NOT_FOUND` in both cases, instead of an access error. It SHOULD then do so consistently, since answering differently in the two cases would reveal exactly what the policy is meant to hide.
 
 ### 14.4 Extended Error Response
 
