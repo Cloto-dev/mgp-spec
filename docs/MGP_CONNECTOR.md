@@ -160,6 +160,24 @@ Panel files are served by the host, not executed by it. A host SHOULD isolate th
 reference host loads a panel in a frame with no origin of its own, so a panel holds no host
 credential and can reach the host only through the requests above).
 
+#### 4.1.1 Several panels: the pages of one view
+
+The order of `ui.panels` is meaningful. A connector that declares more than one panel declares
+the screens of one surface, first to last, and a host MAY present them as the pages of a single
+view in that order — one entry in its navigation, titled with the connector's `name`, with a way
+to the previous and next page. A host that does so:
+
+- MUST keep the declared order; it MUST NOT order pages by `id`.
+- MUST treat each page as the panel it is. `requires`, and any authority a host grants a panel
+  on top of it, stay per panel: presenting panels together MUST NOT merge, share or widen what
+  any one of them may do. A question the host asks the operator about one page (for example,
+  consent to act) is not an answer for another.
+- SHOULD show a connector with a single panel as it would without this section.
+
+This is presentation, not structure: nothing in the schema changes, a host that lists every
+panel on its own remains conforming, and a connector that wants two unrelated surfaces ships
+them as two connectors.
+
 ## 5. `install` Block
 
 The `install` block is required for every connector type. It declares how to materialize the

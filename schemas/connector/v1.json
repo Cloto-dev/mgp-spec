@@ -106,7 +106,7 @@
       "additionalProperties": true,
       "properties": {
         "panels": {
-          "description": "Panels the host lists and serves. Each entry's files live under the directory holding this manifest.",
+          "description": "Panels the host lists and serves, in a meaningful order: a host may present several panels of one connector as the pages of one view, first to last, without merging their requests (MGP_CONNECTOR.md \u00a74.1.1). Each entry's files live under the directory holding this manifest.",
           "type": "array",
           "default": [],
           "items": { "$ref": "#/$defs/PanelDeclaration" }
