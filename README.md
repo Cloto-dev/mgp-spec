@@ -3,6 +3,8 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-draft%20v0.8.0-orange.svg)](docs/MGP_SPEC.md)
 
+This MGP protocol spec defines the Multi-Agent Gateway Protocol and its MCP-compatible extensions.
+
 > Strict superset of MCP (Model Context Protocol) that adds protocol-level security, access control, and observability while maintaining full backward compatibility. Any valid MCP message is a valid MGP message. Any MGP server can operate as a standard MCP server when connected to a client that does not support MGP extensions.
 
 — [docs/MGP_SPEC.md §1.1](docs/MGP_SPEC.md)
