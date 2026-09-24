@@ -1,0 +1,22 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jsonschema
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet jsonschema==4.26.0
+      - name: Links, schemas and version stamps
+        run: .venv/bin/python .github/scripts/check_spec.py
