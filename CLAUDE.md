@@ -20,7 +20,8 @@ Read the actual files; do not summarize (parent rule `feedback_doc_firsthand_rea
 | JSON schemas (`schemas/**/*.json`) | SDK helpers (those live in `mgp-rs` / `mgp-py`) |
 | Reference examples within docs | Working server implementations |
 | CHANGELOG.md | Test fixtures of implementations |
-| README.md, LICENSE | CI / build configs |
+| README.md, LICENSE | Build configs |
+| The consistency check (`.github/`) | |
 
 ## Versioning Discipline
 
@@ -46,12 +47,17 @@ The protocol version (e.g. `0.6.3-draft`) is **stamped in three places** that mu
 - **MUST**: Companion doc `docs/MGP_CONNECTOR.md` explains schema fields in prose and stays in sync with the JSON Schema.
 - **SHOULD**: Reference implementations cite the schema `$id` URL in their docstrings/comments so consumers can trace authority.
 
-## No CI / No Build
+## Consistency Check (CI)
 
-This is a **docs-only** repository. No `.github/workflows/`, no test runner, no build step.
+This is a **docs-only** repository: no test runner, no build step. One check runs on every pull request and on every push to `main` (`.github/workflows/check.yml` → `.github/scripts/check_spec.py`):
 
-- PR mergeability is established once `gh pr checks <#>` returns an empty list — there is nothing to wait for.
-- Lint for Markdown link integrity / JSON Schema validity **MAY** be added later but is not currently in place.
+1. **Relative Markdown links resolve** — the target file exists and, for `#anchor` links, the target has that heading (GitHub's anchor rules). Links inside code are not checked.
+2. **Schemas are valid** — every `schemas/**/*.json` is a Draft 2020-12 schema whose `$id` is `https://cloto.dev/schemas/<path>`.
+3. **Version stamps agree** — the `**Version:**` of `docs/MGP_SPEC.md` equals the stamp of the four sub-docs and has a row in `CHANGELOG.md` and in `docs/MGP_GUIDE.md` §18.1, with the same date. The README badge is a SHOULD (see Versioning Discipline), so a mismatch there is a warning, not a failure.
+
+- **MUST**: A pull request merges only once `check` has passed.
+- Run it locally with `python3 -m venv .venv && .venv/bin/pip install jsonschema && .venv/bin/python .github/scripts/check_spec.py`.
+- A new rule in this file that can be checked mechanically belongs in the script, not only here.
 
 ## Public Repo Implications
 
