@@ -153,6 +153,14 @@ Remove a dynamically registered server.
 }
 ```
 
+Only a server added with `mgp.discovery.register` can be deregistered. A server
+the operator installed persists outside the running session and would return on
+the next start, so removing it from the running registry would report a removal
+that does not hold. The kernel MUST refuse such a call as a Tool Rejection with
+code `NOT_DYNAMICALLY_REGISTERED` (MGP_COMMUNICATION.md §14.7.3), non-retryable,
+and leave the server registered. Removing an installed server is an uninstall,
+which is an operator action outside discovery.
+
 ---
 
 # Part III: Intelligence Layer

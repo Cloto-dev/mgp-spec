@@ -859,7 +859,7 @@ JSON-RPC 2.0 reserves codes -32768 to -32000. MGP defines application-level code
 | Code | Name | Description |
 |------|------|-------------|
 | 1000 | `PERMISSION_DENIED` | Caller lacks required permission |
-| 1001 | `ACCESS_DENIED` | Agent does not have access to this tool |
+| 1001 | `ACCESS_DENIED` | Access could not be decided: the access check itself failed. A tool call that access control refuses is a Tool Rejection with `ACCESS_DENIED` (§14.7.3), not this error |
 | 1002 | `AUTH_REQUIRED` | Authentication is required |
 | 1003 | `AUTH_EXPIRED` | Authentication credentials have expired |
 | 1010 | `VALIDATION_BLOCKED` | Kernel-side validator blocked the request |
@@ -974,6 +974,27 @@ A rejection is never a JSON-RPC error. JSON-RPC errors indicate the
 protocol could not complete; rejections indicate the protocol completed
 successfully but the tool answer is a structured "no".
 
+**Where the line falls when a kernel refuses a call.** The question to ask is
+whether the refusal is an answer about *this caller using this tool*, or a
+finding that *the request itself is not valid*:
+
+- **Tool Rejection** — a policy answer. The caller holds no grant for the tool
+  or its server, an operator has explicitly denied it, the original actor of a
+  delegated call lacks access (§5.6.1 of MGP_SECURITY.md), privileged mode is
+  required, the code is unsafe, or the server is not one that can be removed
+  (§14.7.3). The request was well formed and could be answered; the answer is no.
+- **JSON-RPC error** — the request could not be evaluated as sent. A
+  `_mgp.delegation` envelope that fails verification (chain deeper than 3, an
+  unknown original actor or delegating server — §5.6.2–5.6.3 of
+  MGP_SECURITY.md), a caller of the wrong kind for an admin-only tool (§1.6.3 of
+  MGP_SPEC.md), a missing or malformed argument, or an access check that could
+  not be completed (`1001`).
+
+The distinction decides what the model is told. A rejection carries "do not
+retry" and counts toward the loop break (§14.7.5); an error is a transport-level
+failure the client may retry. A missing grant reported as an error invites the
+model to try the same call again.
+
 #### 14.7.2 Rejection Body Schema
 
 The tool response MUST set `isError: true` and MUST include at least
@@ -1023,6 +1044,7 @@ them transparently when an external server supplies one.
 | `DELEGATION_CYCLE` | Inter-agent delegation would form a cycle. Typically carries a `chain` array. | `false` |
 | `DELEGATION_DEPTH` | Inter-agent delegation chain exceeded the maximum depth. | `false` |
 | `SELF_DELEGATION` | Caller attempted to delegate to itself. | `false` |
+| `NOT_DYNAMICALLY_REGISTERED` | A server named for `mgp.discovery.deregister` was installed by the operator rather than registered at runtime, so it cannot be removed through discovery (MGP_DISCOVERY.md §15). | `false` |
 | `UNKNOWN` | External server rejection without a mappable code. | defer to body |
 
 Codes are serialised as JSON strings in SCREAMING_SNAKE_CASE.
